@@ -44,7 +44,7 @@
         "type": "vcs",
         "url": "git@github.com:ArtemAlexeev/filesystem-adapter.git"
         }
-    }
+    },
     "scripts": {
         "test": "phpunit --colors=always",
         "test:unit": "phpunit --testsuite=Unit --colors=always",
