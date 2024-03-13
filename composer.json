@@ -40,10 +40,10 @@
         }
     },
     "repositories": {
-    "cache-filesystem-adapter": {
-      "type": "vcs",
-      "url": "git@github.com:ArtemAlexeev/filesystem-adapter.git"
-    },
+        "cache-filesystem-adapter": {
+          "type": "vcs",
+          "url": "git@github.com:ArtemAlexeev/filesystem-adapter.git"
+        }
     },
     "scripts": {
         "test": "phpunit --colors=always",
