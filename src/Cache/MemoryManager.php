@@ -20,13 +20,13 @@ namespace Okta\Cache;
 use Cache\Adapter\Filesystem\FilesystemCachePool;
 use League\Flysystem\Adapter\AbstractAdapter;
 use League\Flysystem\Filesystem;
-use League\Flysystem\Memory\MemoryAdapter;
+//use League\Flysystem\Memory\MemoryAdapter;
 
 class MemoryManager extends CacheManager
 {
 
     public function __construct(AbstractAdapter $adapter = null)
-    {
+    {/*
         if(null === $adapter) {
             $adapter = new MemoryAdapter();
         }
@@ -38,6 +38,6 @@ class MemoryManager extends CacheManager
                 )
             )
         );
-
+*/
     }
 }
