@@ -263,12 +263,12 @@ class DefaultDataStore
      */
     public function executeRequest($method, UriInterface $uri, $body = '', array $options = [])
     {
-        $cacheManager = $cacheManager = Client::getInstance()->getCacheManager();
-        $cacheKey = $cacheManager->createCacheKey($uri);
+        //$cacheManager = $cacheManager = Client::getInstance()->getCacheManager();
+        //$cacheKey = $cacheManager->createCacheKey($uri);
 
-        if('GET' == $method && $cacheManager->pool()->hasItem($cacheKey)) {
-            return $cacheManager->pool()->getItem($cacheKey)->get();
-        }
+        //if('GET' == $method && $cacheManager->pool()->hasItem($cacheKey)) {
+           // return $cacheManager->pool()->getItem($cacheKey)->get();
+        //}
 
         $headers = [];
         $headers['Accept'] = 'application/json';
@@ -303,7 +303,8 @@ class DefaultDataStore
             $error = new Error($result);
             throw new ResourceException($error);
         }
-
+return $result;
+        /*
         if (!is_array($result)) {
             switch($method) {
                 case 'GET':
@@ -326,6 +327,7 @@ class DefaultDataStore
             }
         }
         return $result;
+        */
     }
 
     /**
