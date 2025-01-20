@@ -17,6 +17,7 @@
 
 namespace Okta\DataStore;
 
+use GuzzleHttp\Psr7\Query;
 use Cache\Adapter\Common\CacheItem;
 use function GuzzleHttp\Psr7\build_query;
 use function GuzzleHttp\Psr7\parse_query;
@@ -385,23 +386,9 @@ return $result;
      */
     private function appendQueryValues($currentQuery, $queryDictionary)
     {
-        $currentQueryParts = parse_query($currentQuery);
+        $currentQueryParts = Query::parse($currentQuery, true);
 
-        if ($currentQuery == '') {
-            $result = [];
-        }
-
-        foreach ($queryDictionary as $key => $value) {
-            $key = strtr($key, ['=' => '%3D', '&' => '%26']);
-            if ($value !== null) {
-                $result[$key] = strtr($value, ['=' => '%3D', '&' => '%26']);
-            } else {
-                $result[$key] = $key;
-            }
-        }
-
-        $result = array_replace_recursive($currentQueryParts, $result);
-        return build_query($result);
+        return Query::build(array_replace_recursive($currentQueryParts, $queryDictionary), PHP_QUERY_RFC3986);
     }
 
     /**
