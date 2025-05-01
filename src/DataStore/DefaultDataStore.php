@@ -19,16 +19,16 @@ namespace Okta\DataStore;
 
 use GuzzleHttp\Psr7\Query;
 use Cache\Adapter\Common\CacheItem;
+use Http\Discovery\Psr17FactoryDiscovery;
 use function GuzzleHttp\Psr7\build_query;
 use function GuzzleHttp\Psr7\parse_query;
 use Http\Client\Common\Plugin\AuthenticationPlugin;
 use Http\Client\Common\PluginClient;
 use Http\Client\HttpClient;
 use Http\Discovery\HttpClientDiscovery;
-use Http\Discovery\MessageFactoryDiscovery;
-use Http\Discovery\UriFactoryDiscovery;
-use Http\Message\MessageFactory;
-use Http\Message\UriFactory;
+use Psr\Http\Message\RequestFactoryInterface;
+use Psr\Http\Message\StreamFactoryInterface;
+use Psr\Http\Message\UriFactoryInterface;
 use Okta\Client;
 use Okta\Exceptions\Error;
 use Okta\Exceptions\ResourceException;
@@ -42,12 +42,12 @@ use Psr\Http\Message\UriInterface;
 class DefaultDataStore
 {
     /**
-     * @var \Http\Message\UriFactory $uriFactory Uri Factory.
+     * @var UriFactoryInterface $uriFactory Uri Factory.
      */
     protected $uriFactory;
 
     /**
-     * @var \Http\Message\MessageFactory $messageFactory Message Factory.
+     * @var RequestFactoryInterface $messageFactory Message Factory.
      */
     protected $messageFactory;
 
@@ -90,7 +90,7 @@ class DefaultDataStore
      * @param HttpClient|NULL $httpClient
      * @param AuthorizationMode|NULL $authorizationMode
      */
-    public function __construct(string $token, string $organizationUrl, HttpClient $httpClient = null, AuthorizationMode $authorizationMode = null)
+    public function __construct(string $token, string $organizationUrl, $httpClient = null, AuthorizationMode $authorizationMode = null)
     {
         $this->token = $token;
         $this->organizationUrl = $organizationUrl;
@@ -107,8 +107,8 @@ class DefaultDataStore
             [ $authenticationPlugin ]
         );
 
-        $this->uriFactory = UriFactoryDiscovery::find();
-        $this->messageFactory = MessageFactoryDiscovery::find();
+        $this->uriFactory = Psr17FactoryDiscovery::findUriFactory();
+        $this->messageFactory = Psr17FactoryDiscovery::findRequestFactory();
 
         $this->baseUrl = $this->organizationUrl . '/api/v1';
 
@@ -290,7 +290,18 @@ class DefaultDataStore
             $uri = $uri->withQuery($this->appendQueryValues($uri->getQuery(), $queryString));
         }
 
-        $request = $this->messageFactory->createRequest($method, $uri, $headers, $body);
+        // Create request using PSR-17 RequestFactory
+        $request = $this->messageFactory->createRequest($method, $uri);
+        
+        // Add headers and body
+        foreach ($headers as $name => $value) {
+            $request = $request->withHeader($name, $value);
+        }
+        
+        if ($body) {
+            $bodyStream = Psr17FactoryDiscovery::findStreamFactory()->createStream($body);
+            $request = $request->withBody($bodyStream);
+        }
 
         $response = $this->httpClient->sendRequest($request);
 
@@ -304,7 +315,8 @@ class DefaultDataStore
             $error = new Error($result);
             throw new ResourceException($error);
         }
-return $result;
+        return $result;
+        
         /*
         if (!is_array($result)) {
             switch($method) {
@@ -404,9 +416,9 @@ return $result;
     /**
      * Get the current MessageFactory instance.
      *
-     * @return MessageFactory
+     * @return RequestFactoryInterface
      */
-    public function getMessageFactory(): MessageFactory
+    public function getMessageFactory(): RequestFactoryInterface
     {
         return $this->messageFactory;
     }
@@ -414,9 +426,9 @@ return $result;
     /**
      * Get the current UriFactory instance.
      *
-     * @return UriFactory
+     * @return UriFactoryInterface
      */
-    public function getUriFactory(): UriFactory
+    public function getUriFactory(): UriFactoryInterface
     {
         return $this->uriFactory;
     }
