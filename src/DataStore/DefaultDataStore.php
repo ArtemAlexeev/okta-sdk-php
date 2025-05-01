@@ -17,6 +17,7 @@
 
 namespace Okta\DataStore;
 
+use GuzzleHttp\Psr7\Query;
 use Cache\Adapter\Common\CacheItem;
 use function GuzzleHttp\Psr7\build_query;
 use function GuzzleHttp\Psr7\parse_query;
@@ -203,7 +204,7 @@ class DefaultDataStore
         $this->resource = $resource;
         $uri = $this->uriFactory->createUri($this->organizationUrl . '/api/v1' . $href . '/' . $resource->getId());
 
-        $result = $this->executeRequest('POST', $uri, json_encode($this->toStdClass($resource)));
+        $result = $this->executeRequest($resource->getId() ? 'PUT' : 'POST', $uri, json_encode($this->toStdClass($resource)));
         $resource = new $returnType(null, $result);
 
         return $resource;
@@ -263,12 +264,12 @@ class DefaultDataStore
      */
     public function executeRequest($method, UriInterface $uri, $body = '', array $options = [])
     {
-        $cacheManager = $cacheManager = Client::getInstance()->getCacheManager();
-        $cacheKey = $cacheManager->createCacheKey($uri);
+        //$cacheManager = $cacheManager = Client::getInstance()->getCacheManager();
+        //$cacheKey = $cacheManager->createCacheKey($uri);
 
-        if('GET' == $method && $cacheManager->pool()->hasItem($cacheKey)) {
-            return $cacheManager->pool()->getItem($cacheKey)->get();
-        }
+        //if('GET' == $method && $cacheManager->pool()->hasItem($cacheKey)) {
+           // return $cacheManager->pool()->getItem($cacheKey)->get();
+        //}
 
         $headers = [];
         $headers['Accept'] = 'application/json';
@@ -303,7 +304,8 @@ class DefaultDataStore
             $error = new Error($result);
             throw new ResourceException($error);
         }
-
+return $result;
+        /*
         if (!is_array($result)) {
             switch($method) {
                 case 'GET':
@@ -326,6 +328,7 @@ class DefaultDataStore
             }
         }
         return $result;
+        */
     }
 
     /**
@@ -383,23 +386,9 @@ class DefaultDataStore
      */
     private function appendQueryValues($currentQuery, $queryDictionary)
     {
-        $currentQueryParts = parse_query($currentQuery);
+        $currentQueryParts = Query::parse($currentQuery, true);
 
-        if ($currentQuery == '') {
-            $result = [];
-        }
-
-        foreach ($queryDictionary as $key => $value) {
-            $key = strtr($key, ['=' => '%3D', '&' => '%26']);
-            if ($value !== null) {
-                $result[$key] = strtr($value, ['=' => '%3D', '&' => '%26']);
-            } else {
-                $result[$key] = $key;
-            }
-        }
-
-        $result = array_replace_recursive($currentQueryParts, $result);
-        return build_query($result);
+        return Query::build(array_replace_recursive($currentQueryParts, $queryDictionary), PHP_QUERY_RFC3986);
     }
 
     /**

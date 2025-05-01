@@ -17,6 +17,7 @@
 
 namespace Okta\Generated\Users;
 
+use Okta\Generated\GroupRules\GroupRuleGroupAssignment;
 use Okta\Groups\Group;
 use Okta\UserFactors\Factor;
 use Okta\UserFactors\SecurityQuestion;
@@ -148,6 +149,16 @@ class User extends \Okta\Resource\AbstractResource
         $this->setResourceProperty(
             self::PROFILE,
             $profile
+        );
+        
+        return $this;
+    }
+
+    public function setGroupIds(array $groupIds)
+    {
+        $this->setProperty(
+            GroupRuleGroupAssignment::GROUP_IDS,
+            $groupIds
         );
         
         return $this;
@@ -674,6 +685,14 @@ class User extends \Okta\Resource\AbstractResource
         return $body;
     }
 
+    public function deleteFromGroup($groupId)
+    {
+        $uri = "/api/v1/groups/{$groupId}/users/{$this->getId()}";
+        $uri = $this->getDataStore()->buildUri(
+            $this->getDataStore()->getOrganizationUrl() . $uri
+        );
+        return $this->getDataStore()->executeRequest('DELETE', $uri);
+    }
 
     /**
     * Enrolls a user with a supported [factor](#list-factors-to-enroll)
