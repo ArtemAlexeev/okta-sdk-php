@@ -150,7 +150,7 @@ class ClientBuilder
      * @param HttpClient $httpClient An instnace of HttpClient to be used in the SDK.
      * @return ClientBuilder
      */
-    public function setHttpClient(HttpClient $httpClient): ClientBuilder
+    public function setHttpClient($httpClient): ClientBuilder
     {
         $this->httpClient = $httpClient;
         return $this;

@@ -17,17 +17,18 @@
 
 namespace Okta\DataStore;
 
+use GuzzleHttp\Psr7\Query;
 use Cache\Adapter\Common\CacheItem;
+use Http\Discovery\Psr17FactoryDiscovery;
 use function GuzzleHttp\Psr7\build_query;
 use function GuzzleHttp\Psr7\parse_query;
 use Http\Client\Common\Plugin\AuthenticationPlugin;
 use Http\Client\Common\PluginClient;
 use Http\Client\HttpClient;
 use Http\Discovery\HttpClientDiscovery;
-use Http\Discovery\MessageFactoryDiscovery;
-use Http\Discovery\UriFactoryDiscovery;
-use Http\Message\MessageFactory;
-use Http\Message\UriFactory;
+use Psr\Http\Message\RequestFactoryInterface;
+use Psr\Http\Message\StreamFactoryInterface;
+use Psr\Http\Message\UriFactoryInterface;
 use Okta\Client;
 use Okta\Exceptions\Error;
 use Okta\Exceptions\ResourceException;
@@ -41,12 +42,12 @@ use Psr\Http\Message\UriInterface;
 class DefaultDataStore
 {
     /**
-     * @var \Http\Message\UriFactory $uriFactory Uri Factory.
+     * @var UriFactoryInterface $uriFactory Uri Factory.
      */
     protected $uriFactory;
 
     /**
-     * @var \Http\Message\MessageFactory $messageFactory Message Factory.
+     * @var RequestFactoryInterface $messageFactory Message Factory.
      */
     protected $messageFactory;
 
@@ -89,7 +90,7 @@ class DefaultDataStore
      * @param HttpClient|NULL $httpClient
      * @param AuthorizationMode|NULL $authorizationMode
      */
-    public function __construct(string $token, string $organizationUrl, HttpClient $httpClient = null, AuthorizationMode $authorizationMode = null)
+    public function __construct(string $token, string $organizationUrl, $httpClient = null, AuthorizationMode $authorizationMode = null)
     {
         $this->token = $token;
         $this->organizationUrl = $organizationUrl;
@@ -106,8 +107,8 @@ class DefaultDataStore
             [ $authenticationPlugin ]
         );
 
-        $this->uriFactory = UriFactoryDiscovery::find();
-        $this->messageFactory = MessageFactoryDiscovery::find();
+        $this->uriFactory = Psr17FactoryDiscovery::findUriFactory();
+        $this->messageFactory = Psr17FactoryDiscovery::findRequestFactory();
 
         $this->baseUrl = $this->organizationUrl . '/api/v1';
 
@@ -203,7 +204,7 @@ class DefaultDataStore
         $this->resource = $resource;
         $uri = $this->uriFactory->createUri($this->organizationUrl . '/api/v1' . $href . '/' . $resource->getId());
 
-        $result = $this->executeRequest('POST', $uri, json_encode($this->toStdClass($resource)));
+        $result = $this->executeRequest($resource->getId() ? 'PUT' : 'POST', $uri, json_encode($this->toStdClass($resource)));
         $resource = new $returnType(null, $result);
 
         return $resource;
@@ -263,12 +264,12 @@ class DefaultDataStore
      */
     public function executeRequest($method, UriInterface $uri, $body = '', array $options = [])
     {
-        $cacheManager = $cacheManager = Client::getInstance()->getCacheManager();
-        $cacheKey = $cacheManager->createCacheKey($uri);
+        //$cacheManager = $cacheManager = Client::getInstance()->getCacheManager();
+        //$cacheKey = $cacheManager->createCacheKey($uri);
 
-        if('GET' == $method && $cacheManager->pool()->hasItem($cacheKey)) {
-            return $cacheManager->pool()->getItem($cacheKey)->get();
-        }
+        //if('GET' == $method && $cacheManager->pool()->hasItem($cacheKey)) {
+           // return $cacheManager->pool()->getItem($cacheKey)->get();
+        //}
 
         $headers = [];
         $headers['Accept'] = 'application/json';
@@ -289,7 +290,18 @@ class DefaultDataStore
             $uri = $uri->withQuery($this->appendQueryValues($uri->getQuery(), $queryString));
         }
 
-        $request = $this->messageFactory->createRequest($method, $uri, $headers, $body);
+        // Create request using PSR-17 RequestFactory
+        $request = $this->messageFactory->createRequest($method, $uri);
+        
+        // Add headers and body
+        foreach ($headers as $name => $value) {
+            $request = $request->withHeader($name, $value);
+        }
+        
+        if ($body) {
+            $bodyStream = Psr17FactoryDiscovery::findStreamFactory()->createStream($body);
+            $request = $request->withBody($bodyStream);
+        }
 
         $response = $this->httpClient->sendRequest($request);
 
@@ -303,7 +315,9 @@ class DefaultDataStore
             $error = new Error($result);
             throw new ResourceException($error);
         }
-
+        return $result;
+        
+        /*
         if (!is_array($result)) {
             switch($method) {
                 case 'GET':
@@ -326,6 +340,7 @@ class DefaultDataStore
             }
         }
         return $result;
+        */
     }
 
     /**
@@ -383,23 +398,9 @@ class DefaultDataStore
      */
     private function appendQueryValues($currentQuery, $queryDictionary)
     {
-        $currentQueryParts = parse_query($currentQuery);
+        $currentQueryParts = Query::parse($currentQuery, true);
 
-        if ($currentQuery == '') {
-            $result = [];
-        }
-
-        foreach ($queryDictionary as $key => $value) {
-            $key = strtr($key, ['=' => '%3D', '&' => '%26']);
-            if ($value !== null) {
-                $result[$key] = strtr($value, ['=' => '%3D', '&' => '%26']);
-            } else {
-                $result[$key] = $key;
-            }
-        }
-
-        $result = array_replace_recursive($currentQueryParts, $result);
-        return build_query($result);
+        return Query::build(array_replace_recursive($currentQueryParts, $queryDictionary), PHP_QUERY_RFC3986);
     }
 
     /**
@@ -415,9 +416,9 @@ class DefaultDataStore
     /**
      * Get the current MessageFactory instance.
      *
-     * @return MessageFactory
+     * @return RequestFactoryInterface
      */
-    public function getMessageFactory(): MessageFactory
+    public function getMessageFactory(): RequestFactoryInterface
     {
         return $this->messageFactory;
     }
@@ -425,9 +426,9 @@ class DefaultDataStore
     /**
      * Get the current UriFactory instance.
      *
-     * @return UriFactory
+     * @return UriFactoryInterface
      */
-    public function getUriFactory(): UriFactory
+    public function getUriFactory(): UriFactoryInterface
     {
         return $this->uriFactory;
     }

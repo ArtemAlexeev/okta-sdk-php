@@ -77,7 +77,7 @@ class Client
     public function __construct(
         string $token,
         string $organizationUrl,
-        HttpClient $httpClient = null,
+        $httpClient = null,
         string $integrationUserAgent = null,
         CacheManager $cacheManager = null,
         AuthorizationMode $authorizationMode = null
